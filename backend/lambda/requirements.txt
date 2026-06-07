@@ -1,0 +1,1 @@
+# No external Python packages required — uses built-in boto3 in Lambda runtime

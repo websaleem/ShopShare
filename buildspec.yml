@@ -1,0 +1,42 @@
+version: 0.2
+
+env:
+  variables:
+    STACK_NAME: "shopshare-stack"
+    BEDROCK_MODEL_ID: "amazon.nova-pro-v1:0"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "Installing dependencies..."
+      - yum install -y jq zip
+
+  pre_build:
+    commands:
+      - echo "Validating Python source..."
+      - python3 -m py_compile backend/lambda/extract.py
+      - echo "Validation passed."
+
+  build:
+    commands:
+      # Build Lambda zip — each command runs in its own shell in CodeBuild,
+      # so we chain with && to keep the cd in scope.
+      - echo "Building Lambda package..."
+      - cd backend/lambda && chmod +x build.sh && ./build.sh
+      # Deploy CloudFormation stack (creates/updates all resources)
+      - echo "Deploying CloudFormation stack..."
+      - cd backend/deploy && chmod +x package_and_deploy.sh && ./package_and_deploy.sh $STACK_NAME $BEDROCK_MODEL_ID
+
+  post_build:
+    commands:
+      # Upload the real Lambda code (the CFN stack starts with a placeholder)
+      - echo "Updating Lambda function code..."
+      - aws lambda update-function-code --function-name "shopshare-extract-${STACK_NAME}" --zip-file fileb://backend/lambda/lambda.zip
+      - echo "Deployment complete."
+
+artifacts:
+  files:
+    - backend/lambda/lambda.zip
+  discard-paths: yes
