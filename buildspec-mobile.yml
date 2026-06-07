@@ -1,0 +1,26 @@
+version: 0.2
+
+env:
+  parameter-store:
+    EXPO_TOKEN: "/shopshare/expo-token"
+    # To inject these during build, EAS requires them to be set in the environment or passed via --env
+    EXPO_PUBLIC_API_URL: "/shopshare/mobile/api-url"
+    EXPO_PUBLIC_COGNITO_USER_POOL_ID: "/shopshare/mobile/cognito-user-pool-id"
+    EXPO_PUBLIC_COGNITO_CLIENT_ID: "/shopshare/mobile/cognito-client-id"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Installing EAS CLI..."
+      - npm install -g eas-cli
+      - cd mobile
+      - npm ci
+  build:
+    commands:
+      - echo "Building Android and iOS via Expo Application Services (EAS)..."
+      - cd mobile
+      # We use --non-interactive and --auto-submit to fully automate the pipeline.
+      # You need to have configured eas.json with your credentials profile first.
+      - eas build --platform all --non-interactive --auto-submit

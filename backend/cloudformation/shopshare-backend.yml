@@ -1,0 +1,315 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ShopShare backend stack — Lambda, S3 upload bucket, DynamoDB state table,
+  Cognito User Pool, and IAM role.  Fully self-contained: deploy this single
+  stack and you get a working Function URL endpoint.
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Default: "amazon.nova-lite-v1:0"
+    Description: "The model ID to use for Amazon Bedrock parsing."
+  LambdaS3KeyPrefix:
+    Type: String
+    Default: uploads/
+    Description: S3 prefix for uploaded files
+  SesFromEmail:
+    Type: String
+    Default: "your-email@example.com"
+    Description: Verified SES sender email address
+
+Resources:
+  # ───────── S3 Upload Bucket ─────────
+  ShopShareUploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub shopshare-uploads-${AWS::AccountId}-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteUploadsAfter3Days
+            Status: Enabled
+            ExpirationInDays: 3
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [POST, PUT]
+            # Fix #3: Restrict S3 CORS to specific domains, not wildcard
+            AllowedOrigins:
+              - 'https://www.websaleem.com'
+              - 'https://websaleem.com'
+            MaxAge: 300
+
+  # ───────── DynamoDB State Table ─────────
+  ShopShareStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub shopshare-state-${AWS::StackName}
+      # Fix #14: Explicitly enable server-side encryption
+      SSESpecification:
+        SSEEnabled: true
+      # M-5: Auto-expire rate-limit and job-ownership records
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # ───────── Cognito User Pool ─────────
+  ShopShareUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ShopShareUsers-${AWS::StackName}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          # Fix #5: Strengthen password policy to reduce credential stuffing risk
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+
+  ShopShareUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: shopshare-web
+      UserPoolId: !Ref ShopShareUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      # Fix #16: Explicitly document token validity
+      AccessTokenValidity: 60        # minutes (1 hour)
+      RefreshTokenValidity: 30       # days
+      TokenValidityUnits:
+        AccessToken: minutes
+        RefreshToken: days
+
+  # ───────── IAM Role ─────────
+  ShopShareLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: ShopShareLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: CloudWatchLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Sid: S3Uploads
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource: !Sub arn:aws:s3:::${ShopShareUploadBucket}/*
+              - Sid: Textract
+                Effect: Allow
+                Action:
+                  - textract:StartDocumentTextDetection
+                  - textract:GetDocumentTextDetection
+                  - textract:DetectDocumentText
+                Resource: '*'
+              - Sid: DynamoDB
+                Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt ShopShareStateTable.Arn
+              - Sid: Bedrock
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: '*'
+              - Sid: CognitoAuth
+                Effect: Allow
+                Action:
+                  - cognito-idp:GetUser
+                  # Fix #8: Allow listing users for the share-bill feature
+                  - cognito-idp:ListUsers
+                Resource: '*'
+              - Sid: SES
+                Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: '*'
+
+  # ───────── Lambda Function ─────────
+  ShopShareLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub shopshare-extract-${AWS::StackName}
+      Handler: extract.lambda_handler
+      Runtime: python3.12
+      Role: !GetAtt ShopShareLambdaRole.Arn
+      # L-4: 120s to handle slow Textract start + potential cold starts
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          UPLOAD_BUCKET: !Ref ShopShareUploadBucket
+          UPLOAD_PREFIX: !Ref LambdaS3KeyPrefix
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          STATE_TABLE: !Ref ShopShareStateTable
+          # L-1: Pass USER_POOL_ID so Lambda has no hardcoded fallback
+          USER_POOL_ID: !Ref ShopShareUserPool
+          SES_FROM_EMAIL: !Ref SesFromEmail
+      Code:
+        ZipFile: |
+          # placeholder; use aws cloudformation package or update-function-code to upload real code
+          def lambda_handler(event, context):
+            return {"statusCode":200, "body":"placeholder"}
+
+  # ───────── API Gateway HTTP API ─────────
+  ShopShareHttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: ShopShareHttpApi
+      ProtocolType: HTTP
+      CorsConfiguration:
+        # Fix #4: Restrict API Gateway CORS to specific domains, not wildcard
+        AllowOrigins:
+          - 'https://www.websaleem.com'
+          - 'https://websaleem.com'
+        AllowMethods:
+          - 'OPTIONS'
+          - 'GET'
+          - 'POST'
+          - 'DELETE'
+        AllowHeaders:
+          - 'Content-Type'
+          - 'Authorization'
+        MaxAge: 300
+
+  ShopShareHttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ShopShareHttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ShopShareLambda.Arn
+      PayloadFormatVersion: '2.0'
+
+  ShopShareHttpApiAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref ShopShareHttpApi
+      AuthorizerType: JWT
+      IdentitySource:
+        - "$request.header.Authorization"
+      Name: CognitoJWTAuthorizer
+      JwtConfiguration:
+        Audience:
+          - !Ref ShopShareUserPoolClient
+        Issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${ShopShareUserPool}"
+
+  ShopShareHttpApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ShopShareHttpApi
+      RouteKey: $default
+      Target: !Join ['/', ['integrations', !Ref ShopShareHttpApiIntegration]]
+      AuthorizationType: JWT
+      AuthorizerId: !Ref ShopShareHttpApiAuthorizer
+
+  ShopShareHttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ShopShareHttpApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 50
+        ThrottlingRateLimit: 20
+
+  ShopShareHttpApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ShopShareLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ShopShareHttpApi}/*/*"
+
+  # Fix #15: CloudWatch Alarms for proactive monitoring
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ShopShare-Lambda-Errors-${AWS::StackName}
+      AlarmDescription: Alert when Lambda errors exceed 5 in 5 minutes
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ShopShareLambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  LambdaDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ShopShare-Lambda-Duration-${AWS::StackName}
+      AlarmDescription: Alert when Lambda p99 duration exceeds 30 seconds
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ShopShareLambda
+      ExtendedStatistic: p99
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 30000
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  LambdaFunctionName:
+    Description: The deployed Lambda function name
+    Value: !Ref ShopShareLambda
+  FunctionUrl:
+    Description: "The API Gateway URL endpoint"
+    Value: !Sub "https://${ShopShareHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  StateTableName:
+    Value: !Ref ShopShareStateTable
+  UploadBucketName:
+    Value: !Ref ShopShareUploadBucket
+  LambdaRoleArn:
+    Value: !GetAtt ShopShareLambdaRole.Arn
+  UserPoolId:
+    Description: Cognito User Pool ID — paste into app.js
+    Value: !Ref ShopShareUserPool
+  UserPoolClientId:
+    Description: Cognito App Client ID — paste into app.js
+    Value: !Ref ShopShareUserPoolClient
