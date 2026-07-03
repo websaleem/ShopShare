@@ -700,7 +700,10 @@ def _handle_share(event):
         return _resp(429, {"error": "Service temporarily unavailable. Please try again later."})
 
     try:
-        body = json.loads(event.get("body", "{}"))
+        raw_body = event.get("body", "{}")
+        if event.get("isBase64Encoded"):
+            raw_body = base64.b64decode(raw_body).decode("utf-8")
+        body = json.loads(raw_body)
         target_email = body.get("email", "").strip()
         # H-2: Cap shopName length to prevent abuse in SES subject/body
         shopName = body.get("shopName", "").strip()[:200]
@@ -820,7 +823,10 @@ def _handle_share(event):
         # C-1: HTML-escape all user-supplied values
         try:
             _ses = boto3.client("ses", region_name=AWS_REGION)
-            ses_from = os.environ.get("SES_FROM_EMAIL", "your-email@example.com")
+            ses_from = os.environ.get("SES_FROM_EMAIL", "")
+            if not ses_from:
+                logger.error("[SHARE] SES_FROM_EMAIL env var not set")
+                raise ValueError("SES_FROM_EMAIL not configured")
             
             target_name = body.get("name", "")
             their_items = [it for it in items if it.get("BelongsTo") == target_name] if target_name else []
