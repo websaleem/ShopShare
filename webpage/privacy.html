@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - ShopShare</title>
+    <link rel="icon" type="image/png" href="https://dev.websaleem.com/shopshare/icon.png">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/shopshare/app.css?v=3">
+    <style>
+        .doc-container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 2rem;
+            background: var(--bg-white);
+            border-radius: 14px;
+            border: 1px solid var(--border);
+        }
+        .doc-container h1 { font-size: 2.2rem; margin-bottom: 1rem; color: var(--text-main); }
+        .doc-container h2 { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 1rem; color: var(--primary-dark); }
+        .doc-container p, .doc-container li { font-size: 1rem; line-height: 1.6; color: var(--text-muted); margin-bottom: 1rem; }
+        .doc-container ul { margin-left: 2rem; margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a class="logo" href="https://dev.websaleem.com/shopshare/index.html" style="display: flex; align-items: center;">
+            <img src="/shopshare/icon.png" alt="ShopShare" style="width: 24px; height: 24px; border-radius: 4px; margin-right: 8px;"> ShopShare
+        </a>
+        <div class="nav-links">
+            <a href="https://dev.websaleem.com/shopshare/index.html">Back to App</a>
+        </div>
+    </nav>
+
+    <div class="doc-container">
+        <h1>Privacy Policy</h1>
+        <p><strong>Effective Date:</strong> May 23, 2026</p>
+        
+        <p>Welcome to ShopShare. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you as to how we look after your personal data when you visit our website or use our mobile application (collectively, the "App") and tell you about your privacy rights and how the law protects you.</p>
+
+        <h2>1. Data We Collect</h2>
+        <ul>
+            <li><strong>Identity and Contact Data:</strong> Includes your full name and email address when you register an account using Amazon Cognito.</li>
+            <li><strong>User Content:</strong> Information about your receipts, including item names, prices, and split allocations. If you choose to upload images of your receipts, they are securely processed and optionally stored in a private AWS S3 bucket.</li>
+            <li><strong>Technical Data:</strong> Basic usage information necessary for the functioning of the web and mobile applications.</li>
+        </ul>
+
+        <h2>2. How We Use Your Data</h2>
+        <p>We use your data solely to provide and improve the ShopShare service. Specifically:</p>
+        <ul>
+            <li>To manage your account and keep your active sessions synchronized across your devices.</li>
+            <li>To process your receipts using Amazon Web Services (AWS Textract and Amazon Bedrock). <strong>Your receipt data is NOT used to train AWS foundation models.</strong></li>
+            <li>To send automated bill summaries to friends when you use the "Share Bill" functionality via Amazon SES.</li>
+        </ul>
+
+        <h2>3. Data Storage and Security</h2>
+        <p>All data is processed and stored securely using Amazon Web Services (AWS). Your active bill state is stored in DynamoDB, and uploaded receipt files are stored in an S3 bucket configured for strict privacy. We implement robust security measures to prevent your personal data from being accidentally lost, used, or accessed in an unauthorized way.</p>
+
+        <h2>4. Data Deletion</h2>
+        <p>You have full control over your data. You may permanently delete your account at any time from the Profile section of the App. Deleting your account will completely erase your user identity from our authentication provider (Amazon Cognito) and wipe your saved bill state from our database (DynamoDB). This action is irreversible.</p>
+
+        <h2>5. Changes to this Policy</h2>
+        <p>We may update this privacy policy from time to time in order to reflect changes to our practices or for other operational, legal, or regulatory reasons. We will notify you of any material changes by posting the new policy on this page.</p>
+
+        <h2>6. Contact Us</h2>
+        <p>If you have any questions about this privacy policy or our privacy practices, please contact us via our main website at <a href="https://dev.websaleem.com" target="_blank" rel="noopener noreferrer">dev.websaleem.com</a>.</p>
+    </div>
+
+    <footer>
+        <a class="footer-logo" href="https://dev.websaleem.com/shopshare/index.html">
+            <i class="fas fa-receipt"></i> ShopShare
+        </a>
+        <div class="footer-links">
+            <a href="https://dev.websaleem.com/shopshare/terms.html"><i class="fas fa-file-contract"></i> Terms of Service</a>
+        </div>
+        <p class="copyright">&copy; 2026 ShopShare. Built by <a href="https://dev.websaleem.com" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Saleem Khan</a>.</p>
+    </footer>
+</body>
+</html>
