@@ -15,7 +15,6 @@ Parameters:
     Description: S3 prefix for uploaded files
   SesFromEmail:
     Type: String
-    Default: "your-email@example.com"
     Description: Verified SES sender email address
 
 Resources:

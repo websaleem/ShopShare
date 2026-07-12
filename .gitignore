@@ -28,3 +28,12 @@ backend/lambda/function.zip
 
 # Node modules
 node_modules/
+
+# Test receipt images (may contain PII)
+test/*.png
+test/*.jpg
+test/*.jpeg
+test/*.pdf
+
+# Mobile environment variables
+mobile/.env
