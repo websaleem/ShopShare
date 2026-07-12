@@ -2,9 +2,15 @@ import 'react-native-get-random-values';
 import { CognitoUserPool, AuthenticationDetails, CognitoUser, CognitoUserAttribute } from 'amazon-cognito-identity-js';
 
 const poolData = {
-  UserPoolId: process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID || 'your-region_YourPoolId',
-  ClientId: process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID || 'your-client-id'
+  UserPoolId: process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID,
+  ClientId: process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID
 };
+
+if (!poolData.UserPoolId || !poolData.ClientId) {
+  throw new Error(
+    'Cognito configuration missing. Set EXPO_PUBLIC_COGNITO_USER_POOL_ID and EXPO_PUBLIC_COGNITO_CLIENT_ID in your .env file.'
+  );
+}
 
 export const userPool = new CognitoUserPool(poolData);
 
