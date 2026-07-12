@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { useAppState } from '../context/StateContext';
 import { useRouter } from 'expo-router';
+import { BASE_URL } from '../services/api';
 
 export default function SettingsScreen() {
   const { state, updateState, signOut, clearState } = useAppState();
@@ -25,7 +26,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             if (!state.token) return;
             try {
-              const API_BASE = "https://your-api-id.execute-api.your-region.amazonaws.com/shopshare/api";
+              const API_BASE = `${BASE_URL}/shopshare/api`;
               const res = await fetch(`${API_BASE}/account`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${state.token}` }

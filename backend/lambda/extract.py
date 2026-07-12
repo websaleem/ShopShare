@@ -75,6 +75,8 @@ RATE_LIMIT_TABLE = os.environ.get("RATE_LIMIT_TABLE", STATE_TABLE_NAME)
 RATE_LIMIT_WINDOW = 3600  # 1 hour in seconds
 RATE_LIMIT_MAX_EXTRACT = 30  # max extract calls per hour per user
 RATE_LIMIT_MAX_SHARE = 10    # max share calls per hour per user
+RATE_LIMIT_MAX_STATE = 60    # max state read/write calls per hour per user
+RATE_LIMIT_MAX_ACCOUNT = 5   # max account deletion attempts per hour per user
 
 _EMAIL_RE = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
 
@@ -172,6 +174,14 @@ def _handle_get_state(event):
         logger.warning("[STATE] GET auth failed: %s", e)
         return _resp(401, {"error": "Unauthorized"})
 
+    # Fix #5: Rate limit /state reads
+    try:
+        if not _check_rate_limit(user_id, "state_read", RATE_LIMIT_MAX_STATE):
+            return _resp(429, {"error": "Rate limit exceeded. Please try again later."})
+    except Exception:
+        logger.exception("[STATE] Rate limit check failed, denying request")
+        return _resp(429, {"error": "Service temporarily unavailable."})
+
     try:
         table = _dynamodb.Table(STATE_TABLE_NAME)
         t0 = time.time()
@@ -193,11 +203,20 @@ def _handle_post_state(event):
         logger.warning("[STATE] POST auth failed: %s", e)
         return _resp(401, {"error": "Unauthorized"})
 
+    # Fix #5: Rate limit /state writes
+    try:
+        if not _check_rate_limit(user_id, "state_write", RATE_LIMIT_MAX_STATE):
+            return _resp(429, {"error": "Rate limit exceeded. Please try again later."})
+    except Exception:
+        logger.exception("[STATE] Rate limit check failed, denying request")
+        return _resp(429, {"error": "Service temporarily unavailable."})
+
     try:
         payload = _read_json_body(event)
         state = payload.get("state", {})
         # M-1 fix: state from frontend is already a JSON string — measure it directly, not double-encoded
-        state_size = len(state) if isinstance(state, str) else len(json.dumps(state))
+        # Fix #6: Measure in bytes (not characters) to handle multi-byte Unicode
+        state_size = len(state.encode('utf-8')) if isinstance(state, str) else len(json.dumps(state).encode('utf-8'))
         if state_size > 350_000:
             logger.warning("[STATE] State too large: %d bytes, user=%s", state_size, user_id)
             return _resp(413, {"error": "State too large. Please clear some history or items."})
@@ -219,10 +238,34 @@ def _handle_delete_account(event):
         logger.warning("[ACCOUNT] DELETE auth failed: %s", e)
         return _resp(401, {"error": "Unauthorized"})
 
+    # Fix #5: Rate limit account deletion
+    try:
+        if not _check_rate_limit(user_id, "account_delete", RATE_LIMIT_MAX_ACCOUNT):
+            return _resp(429, {"error": "Rate limit exceeded. Please try again later."})
+    except Exception:
+        logger.exception("[ACCOUNT] Rate limit check failed, denying request")
+        return _resp(429, {"error": "Service temporarily unavailable."})
+
     try:
         table = _dynamodb.Table(STATE_TABLE_NAME)
         table.delete_item(Key={"userId": user_id})
         logger.info("[ACCOUNT] DynamoDB delete_item succeeded, user=%s", user_id)
+
+        # Fix #9: Clean up S3 uploads for this user (GDPR / privacy compliance)
+        if UPLOAD_BUCKET and UPLOAD_PREFIX:
+            try:
+                prefix = f"{UPLOAD_PREFIX}{user_id}/"
+                s3_resp = _s3.list_objects_v2(Bucket=UPLOAD_BUCKET, Prefix=prefix)
+                objects = s3_resp.get("Contents", [])
+                if objects:
+                    _s3.delete_objects(
+                        Bucket=UPLOAD_BUCKET,
+                        Delete={"Objects": [{"Key": obj["Key"]} for obj in objects]}
+                    )
+                    logger.info("[ACCOUNT] Deleted %d S3 objects for user=%s", len(objects), user_id)
+            except Exception:
+                logger.exception("[ACCOUNT] Failed to clean up S3 uploads for user=%s", user_id)
+
         return _resp(200, {"success": True, "message": "Account data deleted."})
     except Exception:
         logger.exception("[ACCOUNT] DynamoDB DELETE failed")
@@ -251,12 +294,18 @@ def _handle_extract(event):
     # the environment variable `BEDROCK_MODEL_ID`.
     if not BEDROCK_MODEL_ID:
         logger.error("[EXTRACT] BEDROCK_MODEL_ID env var not set")
-        return _resp(500, {"error": "BEDROCK_MODEL_ID env var not set"})
+        return _resp(500, {"error": "Server configuration error"})
 
     try:
         payload = _read_json_body(event)
         mime_type = payload["mime_type"]
-        file_bytes = base64.b64decode(payload["data_b64"])
+        # Fix #7: Check base64 string size before decoding to prevent memory abuse
+        data_b64_str = payload.get("data_b64", "")
+        max_b64_len = (MAX_BYTES * 4 // 3) + 100  # base64 overhead is ~4:3
+        if len(data_b64_str) > max_b64_len:
+            logger.warning("[EXTRACT] base64 payload too large: %d chars", len(data_b64_str))
+            return _resp(413, {"error": f"Payload too large (max {MAX_BYTES} bytes)"})
+        file_bytes = base64.b64decode(data_b64_str)
     except (ValueError, KeyError, TypeError) as e:
         logger.warning("[EXTRACT] Bad request body: %s", e)
         return _resp(400, {"error": "Invalid request body"})
@@ -447,7 +496,9 @@ def _handle_extract_status(event):
             logger.warning("[STATUS] Job ownership mismatch: user=%s jobId=%s", user_id, job_id)
             return _resp(403, {"error": "Access denied"})
     except Exception:
-        logger.exception("[STATUS] Could not verify job ownership jobId=%s — proceeding", job_id)
+        # Fix #4: Fail closed — deny access if ownership cannot be verified
+        logger.exception("[STATUS] Could not verify job ownership jobId=%s — denying", job_id)
+        return _resp(500, {"error": "Unable to verify job ownership. Please try again."})
     logger.info("[STATUS] Polling Textract jobId=%s", job_id)
 
     t0 = time.time()
@@ -617,6 +668,9 @@ def _read_json_body(event):
     raw = event.get("body") or ""
     if event.get("isBase64Encoded"):
         raw = base64.b64decode(raw).decode("utf-8")
+    # Fix #10: Return empty dict instead of crashing on empty/missing body
+    if not raw:
+        return {}
     return json.loads(raw)
 
 
