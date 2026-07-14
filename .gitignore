@@ -37,3 +37,7 @@ test/*.pdf
 
 # Mobile environment variables
 mobile/.env
+
+# Runtime config (generated at deploy time from SSM)
+webpage/config.js
+config.js
