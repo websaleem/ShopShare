@@ -41,3 +41,10 @@ mobile/.env
 # Runtime config (generated at deploy time from SSM)
 webpage/config.js
 config.js
+
+# TestZeus Hercules Testing Artifacts & Secrets
+tests/agents_llm_config.json
+tests/log_files/
+tests/output/
+tests/proofs/
+tests/temp/

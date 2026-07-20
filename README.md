@@ -164,9 +164,35 @@ If your Lambda is secured via Cognito, provide a valid `Authorization: Bearer <J
 
 Resets all items and people back to defaults.
 
+## Automated Testing (TestZeus Hercules)
+
+ShopShare uses **TestZeus Hercules** for AI-driven Behavior Driven Development (BDD) testing. 
+The test runner interprets `.feature` (Gherkin) files and uses GenAI agents (like Gemini) to autonomously execute UI interactions and validate assertions in the browser.
+
+### Running the tests
+
+1. Create a Python virtual environment and install the requirements:
+   ```bash
+   cd tests
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   playwright install
+   ```
+2. Ensure you have your Google Gemini API key set in your `.env` file at the root of the project:
+   ```bash
+   LLM_MODEL_API_KEY="your_api_key_here"
+   LLM_MODEL_NAME="gemini-flash-latest"
+   ```
+3. Run the tests using the shell script (this script automatically builds the LLM configuration so your API key isn't checked into git):
+   ```bash
+   ./tests/run_tests.sh
+   ```
+
+The script will launch Hercules, execute the test scenarios in `tests/input/shopshare_split.feature`, and output execution traces and screenshot proofs into the `tests/output/` and `tests/proofs/` directories.
+
 ## Limitations & future work
 
 - Single-page app, no persistence — refresh loses state. Would need a small database if persistence is wanted.
 - The discount applies to subtotal + tax. If a venue applies discount before tax, the math has to be reordered.
 - The AI extractor uses prompt-based JSON guidance. Bedrock models often respect strict output instructions; server-side validation remains in place to handle unexpected or malformed model output.
-- No automated tests. Pure-function units are the obvious targets.
