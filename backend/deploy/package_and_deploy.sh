@@ -6,7 +6,7 @@ set -euo pipefail
 # DynamoDB table, Cognito pool, and Lambda Function URL.
 STACK_NAME=${1:-shopshare-stack}
 BEDROCK_MODEL_ID=${2:-}
-TEMPLATE=../cloudformation/shopshare-backend.yml
+TEMPLATE=../../infra/shopshare-backend.yml
 
 if [[ -z "$BEDROCK_MODEL_ID" ]]; then
   echo "Usage: $0 <stack-name> <bedrock-model-id>"

@@ -297,10 +297,10 @@ aws s3 rm s3://$BUCKET/shopshare/ --recursive
 
 ## Automated deploy via AWS CodePipeline
 
-An AWS CodePipeline is defined in `cloudformation/ci-cd.yaml`. It uses CodeBuild to build the Lambda package, deploy the CloudFormation stack, and update the Lambda function code. To set it up:
+An AWS CodePipeline is defined in `infra/ci-cd.yaml`. It uses CodeBuild to build the Lambda package, deploy the CloudFormation stack, and update the Lambda function code. To set it up:
 
 1. Create an AWS CodeConnection to your GitHub repo in the AWS Console (Developer Tools → Settings → Connections). CodeConnections are **free**.
-2. Deploy the `cloudformation/ci-cd.yaml` stack with parameters:
+2. Deploy the `infra/ci-cd.yaml` stack with parameters:
    - `FullRepositoryId` (e.g. `your-username/ShopShare`)
    - `BranchName` (default: `main`)
    - `CodeConnectionArn` (the ARN from step 1)
