@@ -25,6 +25,7 @@ Thumbs.db
 backend/lambda/build/
 backend/lambda/lambda.zip
 backend/lambda/function.zip
+*.zip
 
 # Node modules
 node_modules/
@@ -35,16 +36,16 @@ test/*.jpg
 test/*.jpeg
 test/*.pdf
 
-# Mobile environment variables
-mobile/.env
-
-# Runtime config (generated at deploy time from SSM)
-webpage/config.js
-config.js
-
 # TestZeus Hercules Testing Artifacts & Secrets
 tests/agents_llm_config.json
 tests/log_files/
 tests/output/
 tests/proofs/
 tests/temp/
+
+# Runtime config (generated at deploy time from SSM)
+website/config.js
+config.js
+
+# Mobile environment variables
+mobile/.env

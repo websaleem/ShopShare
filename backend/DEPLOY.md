@@ -3,7 +3,7 @@
 This is the runbook for the Option-A architecture: a static frontend on **S3 + CloudFront**, plus a **Lambda** (with a Function URL) for AI extraction (Textract + Bedrock). The expected cost at portfolio traffic is **$0–1/month** — well within the AWS Lambda and CloudFront free tiers.
 
 ```
-                  CloudFront (websaleem.com)
+                  CloudFront (dev.websaleem.com)
                            │
         ┌──────────────────┴────────────────────┐
         ▼                                       ▼
@@ -21,7 +21,7 @@ This is the runbook for the Option-A architecture: a static frontend on **S3 + C
 You need:
 - An AWS account with permission to create S3 buckets, Lambda functions, and edit your existing CloudFront distribution.
 - The AWS CLI configured (`aws configure`) — all commands below assume `us-east-1`; substitute your region.
-- The existing CloudFront distribution that serves `websaleem.com` (`DIST_ID` below).
+- The existing CloudFront distribution that serves `dev.websaleem.com` (`DIST_ID` below).
 
 Substitute these placeholders before running anything:
 
@@ -241,7 +241,7 @@ aws cloudfront create-invalidation \
 
 ## 8. Test
 
-1. Open `https://www.websaleem.com/shopshare/` in a browser.
+1. Open `https://shopshare.websaleem.com/` in a browser.
 2. Add a person.
 3. Switch to **AI Import**, upload a JPG/PNG/PDF receipt, click **Extract Items with AI**.
 5. The pending list should populate. Assign rows to people, click **Add All**, and watch the per-person split fill in.
@@ -297,10 +297,10 @@ aws s3 rm s3://$BUCKET/shopshare/ --recursive
 
 ## Automated deploy via AWS CodePipeline
 
-An AWS CodePipeline is defined in `cloudformation/ci-cd.yaml`. It uses CodeBuild to build the Lambda package, deploy the CloudFormation stack, and update the Lambda function code. To set it up:
+An AWS CodePipeline is defined in `infra/ci-cd.yaml`. It uses CodeBuild to build the Lambda package, deploy the CloudFormation stack, and update the Lambda function code. To set it up:
 
 1. Create an AWS CodeConnection to your GitHub repo in the AWS Console (Developer Tools → Settings → Connections). CodeConnections are **free**.
-2. Deploy the `cloudformation/ci-cd.yaml` stack with parameters:
+2. Deploy the `infra/ci-cd.yaml` stack with parameters:
    - `FullRepositoryId` (e.g. `your-username/ShopShare`)
    - `BranchName` (default: `main`)
    - `CodeConnectionArn` (the ARN from step 1)

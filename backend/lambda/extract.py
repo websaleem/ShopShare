@@ -16,15 +16,6 @@ Two endpoints, dispatched on the rawPath:
 
 import base64
 import json
-from decimal import Decimal
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            if obj % 1 == 0:
-                return int(obj)
-            return float(obj)
-        return super(DecimalEncoder, self).default(obj)
 import decimal
 import logging
 import os
@@ -66,8 +57,7 @@ USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 # Security: allowed CORS origins — do NOT include localhost in production
 _extra_origins = {o.strip() for o in os.environ.get("ALLOWED_ORIGINS_EXTRA", "").split(",") if o.strip()}
 ALLOWED_ORIGINS = {
-    "https://www.websaleem.com",
-    "https://websaleem.com",
+    "https://dev.websaleem.com",
 } | _extra_origins
 
 # Security: per-user rate limiting (extract/share endpoints)
@@ -91,9 +81,6 @@ PROMPT = (
     "Return ONLY a valid JSON object. "
     'The object must have exactly three keys: "shopName" (string), "purchaseDate" (ISO 8601 string, e.g. "2023-10-25T14:30:00Z", use your best guess if time is missing), and "items" (array of objects). '
     'Each object in the "items" array must have exactly two keys: "Item" (string) and "Price" (number). '
-    "For the Price, always use the line total (quantity multiplied by the unit price), NOT the unit price alone. "
-    "If a line item has a quantity greater than 1, append the quantity to the item name in the format ' (x<qty>)', e.g. 'Beach Chair (x4)'. "
-    "Ignore shipping, delivery, GST, tax, subtotal, and total summary lines — only include actual purchased items. "
     "Do not include any other text, markdown formatting, or explanation."
 )
 
@@ -682,7 +669,7 @@ def _get_cors_origin(origin: str) -> str:
 
 
 def _resp(status: int, body, origin: str = "") -> dict:
-    resp_body = json.dumps(body, cls=DecimalEncoder)
+    resp_body = json.dumps(body)
     if status >= 400:
         logger.warning("[RESP] status=%d body=%s", status, resp_body[:500])
     cors_origin = _get_cors_origin(origin)
@@ -766,10 +753,8 @@ def _handle_share(event):
         return _resp(429, {"error": "Service temporarily unavailable. Please try again later."})
 
     try:
-        raw_body = event.get("body", "{}")
-        if event.get("isBase64Encoded"):
-            raw_body = base64.b64decode(raw_body).decode("utf-8")
-        body = json.loads(raw_body)
+        # Fix #18: Use _read_json_body for consistent base64 body handling
+        body = _read_json_body(event)
         target_email = body.get("email", "").strip()
         # H-2: Cap shopName length to prevent abuse in SES subject/body
         shopName = body.get("shopName", "").strip()[:200]
@@ -889,57 +874,53 @@ def _handle_share(event):
         # C-1: HTML-escape all user-supplied values
         try:
             _ses = boto3.client("ses", region_name=AWS_REGION)
+            # Fix #8: Require SES_FROM_EMAIL env var — no personal email fallback
             ses_from = os.environ.get("SES_FROM_EMAIL", "")
             if not ses_from:
                 logger.error("[SHARE] SES_FROM_EMAIL env var not set")
                 raise ValueError("SES_FROM_EMAIL not configured")
             
             target_name = body.get("name", "")
-            tax_pct = float(body.get("taxPct", 0) or 0)
-            discount_pct = float(body.get("discountPct", 0) or 0)
-
-            # Fallback: if no rates sent by frontend, auto-detect Costco from shopName
-            if tax_pct == 0 and discount_pct == 0:
-                shop_lower = (shopName or "").strip().lower()
-                if "costco" in shop_lower:
-                    tax_pct = 3.0
-                    discount_pct = 20.0
             their_items = [it for it in items if it.get("BelongsTo") == target_name] if target_name else []
-
-            # Helper: compute pay amount = subtotal + tax - discount (discount on subtotal+tax)
-            def pay_amount(subtotal):
-                tax = subtotal * (tax_pct / 100)
-                discount = (subtotal + tax) * (discount_pct / 100)
-                return subtotal + tax - discount, tax, discount
-
+            
             items_html = ""
             if their_items:
                 items_html += "<h3>Your Items</h3><ul>"
                 for it in their_items:
                     safe_item = html_escape(str(it.get('Item', 'Item')))
-                    safe_price = float(it.get('Price', 0))
+                    try:
+                        safe_price = float(it.get('Price', 0))
+                    except (TypeError, ValueError):
+                        safe_price = 0.0
                     items_html += f"<li>{safe_item} - ${safe_price:.2f}</li>"
-                their_subtotal = sum([float(it.get("Price", 0)) for it in their_items])
-                their_pay, their_tax, their_disc = pay_amount(their_subtotal)
-                items_html += f"</ul><p><strong>Pay amount: ${their_pay:.2f}</strong> (${their_subtotal:.2f} + ${their_tax:.2f} tax &minus; ${their_disc:.2f} discount)</p><hr/>"
-
+                try:
+                    their_total = sum([float(it.get("Price", 0)) for it in their_items])
+                except (TypeError, ValueError):
+                    their_total = 0.0
+                items_html += f"</ul><p><strong>Your Total: ${their_total:.2f}</strong></p><hr/>"
+                
             items_html += "<h3>Full Bill Summary</h3><ul>"
             for it in items:
                 safe_item = html_escape(str(it.get('Item', 'Item')))
-                safe_price = float(it.get('Price', 0))
+                try:
+                    safe_price = float(it.get('Price', 0))
+                except (TypeError, ValueError):
+                    safe_price = 0.0
                 safe_assigned = html_escape(str(it.get("BelongsTo") or "Unassigned"))
                 items_html += f"<li>{safe_item} - ${safe_price:.2f} <i>(Assigned to: {safe_assigned})</i></li>"
-            bill_subtotal = sum([float(it.get("Price", 0)) for it in items])
-            bill_pay, bill_tax, bill_disc = pay_amount(bill_subtotal)
-            items_html += f"</ul><p><strong>Total amount: ${bill_pay:.2f}</strong> (${bill_subtotal:.2f} + ${bill_tax:.2f} tax &minus; ${bill_disc:.2f} discount)</p>"
+            try:
+                total = sum([float(it.get("Price", 0)) for it in items])
+            except (TypeError, ValueError):
+                total = 0.0
+            items_html += f"</ul><p><strong>Total Bill: ${total:.2f}</strong></p>"
             
-            app_url = "https://websaleem.com/shopshare"
-            cta_text = f'Log in to the <a href="{app_url}">ShopShare app</a> to view and manage these items.' if dynamo_success else f'<a href="{app_url}">Sign up for ShopShare</a> to manage your bills!'
+            cta_text = 'Log in to the ShopShare app to view and manage these items.' if dynamo_success else 'Sign up for ShopShare to manage your bills!'
             
-            subject_text = f"ShopShare Bill from {shopName}" if shopName else "ShopShare: You've received a shared bill!"
-            title_text = f"ShopShare Bill - {shopName}" if shopName else "ShopShare Bill"
-
-            greeting = f"<p>Hi {html_escape(target_name)},</p>" if target_name else ""
+            safe_shop = html_escape(shopName) if shopName else ""
+            # Strip control characters from subject to prevent header injection
+            clean_shop = re.sub(r'[\x00-\x1f\x7f]', '', shopName) if shopName else ""
+            subject_text = f"ShopShare Bill from {clean_shop}" if clean_shop else "ShopShare: You've received a shared bill!"
+            title_text = f"ShopShare Bill - {safe_shop}" if safe_shop else "ShopShare Bill"
 
             _ses.send_email(
                 Source=ses_from,
@@ -948,7 +929,7 @@ def _handle_share(event):
                     "Subject": {"Data": subject_text},
                     "Body": {
                         "Html": {
-                            "Data": f"{greeting}<h2>{title_text}</h2><p>A bill has been shared with you!</p>{items_html}<p>{cta_text}</p>"
+                            "Data": f"<h2>{title_text}</h2><p>A bill has been shared with you!</p>{items_html}<p>{cta_text}</p>"
                         }
                     }
                 }

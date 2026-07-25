@@ -1,7 +1,7 @@
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://your-api-id.execute-api.your-region.amazonaws.com";
-const API_EXTRACT = `${BASE_URL}/shopshare/api/extract`;
-const API_UPLOAD  = `${BASE_URL}/shopshare/api/upload-url`;
-const API_STATE   = `${BASE_URL}/shopshare/api/state`;
+const API_EXTRACT = `${BASE_URL}/api/extract`;
+const API_UPLOAD  = `${BASE_URL}/api/upload-url`;
+const API_STATE   = `${BASE_URL}/api/state`;
 
 export type ExtractResult = { shopName?: string; purchaseDate?: string; items: Array<{ Item: string; Price: number; BelongsTo: string }> };
 

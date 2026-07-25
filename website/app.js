@@ -1,16 +1,16 @@
 /* ShopShare frontend.
  *
  * API endpoints (fronted by CloudFront, forwarded to the Lambda Function URL):
- *   GET  /shopshare/api/state       — fetch user state
- *   POST /shopshare/api/state       — save user state
- *   POST /shopshare/api/extract     — body { mime_type, data_b64 } → list of items
- *   POST /shopshare/api/upload-url  — body { filename, content_type } → presigned PUT URL
+ *   GET  /api/state       — fetch user state
+ *   POST /api/state       — save user state
+ *   POST /api/extract     — body { mime_type, data_b64 } → list of items
+ *   POST /api/upload-url  — body { filename, content_type } → presigned PUT URL
  */
 
 const BASE_URL = SHOPSHARE_CONFIG.API_BASE_URL;
-const API_EXTRACT = `${BASE_URL}/shopshare/api/extract`;
-const API_UPLOAD  = `${BASE_URL}/shopshare/api/upload-url`;
-const API_STATE   = `${BASE_URL}/shopshare/api/state`;
+const API_EXTRACT = `${BASE_URL}/api/extract`;
+const API_UPLOAD  = `${BASE_URL}/api/upload-url`;
+const API_STATE   = `${BASE_URL}/api/state`;
 const MAX_BYTES = 5 * 1024 * 1024;
 const UNASSIGNED = "Unassigned";
 
@@ -810,7 +810,7 @@ function renderSummary() {
                         btn.disabled = false;
                         return;
                     }
-                    const res = await fetch(`${BASE_URL}/shopshare/api/share`, {
+                    const res = await fetch(`${BASE_URL}/api/share`, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -1657,7 +1657,7 @@ function wire() {
                 $("deleteAccountBtn").disabled = true;
 
                 // 1. Delete DynamoDB state
-                const res = await fetch(`${BASE_URL}/shopshare/api/account`, {
+                const res = await fetch(`${BASE_URL}/api/account`, {
                     method: "DELETE",
                     headers: { "Authorization": `Bearer ${jwtToken}` }
                 });

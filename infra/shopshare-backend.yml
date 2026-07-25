@@ -39,8 +39,7 @@ Resources:
             AllowedMethods: [POST, PUT]
             # Fix #3: Restrict S3 CORS to specific domains, not wildcard
             AllowedOrigins:
-              - 'https://www.websaleem.com'
-              - 'https://websaleem.com'
+              - 'https://dev.websaleem.com'
             MaxAge: 300
 
   # ───────── DynamoDB State Table ─────────
@@ -198,8 +197,7 @@ Resources:
       CorsConfiguration:
         # Fix #4: Restrict API Gateway CORS to specific domains, not wildcard
         AllowOrigins:
-          - 'https://www.websaleem.com'
-          - 'https://websaleem.com'
+          - 'https://dev.websaleem.com'
         AllowMethods:
           - 'OPTIONS'
           - 'GET'
