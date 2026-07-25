@@ -1,16 +1,20 @@
 import 'react-native-get-random-values';
 import { CognitoUserPool, AuthenticationDetails, CognitoUser, CognitoUserAttribute } from 'amazon-cognito-identity-js';
 
-const poolData = {
-  UserPoolId: process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID,
-  ClientId: process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID
-};
+// Fix #1: No hardcoded Cognito credentials — env vars are required
+const userPoolId = process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID;
+const clientId = process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID;
 
-if (!poolData.UserPoolId || !poolData.ClientId) {
+if (!userPoolId || !clientId) {
   throw new Error(
     'Cognito configuration missing. Set EXPO_PUBLIC_COGNITO_USER_POOL_ID and EXPO_PUBLIC_COGNITO_CLIENT_ID in your .env file.'
   );
 }
+
+const poolData = {
+  UserPoolId: userPoolId,
+  ClientId: clientId,
+};
 
 export const userPool = new CognitoUserPool(poolData);
 

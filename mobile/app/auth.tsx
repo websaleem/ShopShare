@@ -5,22 +5,31 @@ import { AuthenticationDetails, CognitoUser, CognitoUserAttribute } from 'amazon
 import { userPool } from '../services/auth';
 import { useAppState } from '../context/StateContext';
 
+type AuthMode = 'login' | 'signup' | 'forgotPassword' | 'resetPassword';
+
 export default function AuthScreen() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const { updateState } = useAppState();
 
   const handleAuth = () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+    if (!email) {
+      Alert.alert('Error', 'Please enter email');
       return;
     }
+    
     setLoading(true);
 
-    if (isLogin) {
+    if (authMode === 'login') {
+      if (!password) {
+        setLoading(false);
+        Alert.alert('Error', 'Please enter password');
+        return;
+      }
       const authDetails = new AuthenticationDetails({ Username: email, Password: password });
       const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
 
@@ -44,7 +53,12 @@ export default function AuthScreen() {
           Alert.alert('Login Failed', err.message || JSON.stringify(err));
         },
       });
-    } else {
+    } else if (authMode === 'signup') {
+      if (!password) {
+        setLoading(false);
+        Alert.alert('Error', 'Please enter password');
+        return;
+      }
       if (!name) {
         setLoading(false);
         Alert.alert('Error', 'Please enter your full name');
@@ -66,7 +80,43 @@ export default function AuthScreen() {
           return;
         }
         Alert.alert('Success', 'Account created! Check your email for verification link or code if enabled. Please log in.');
-        setIsLogin(true);
+        setAuthMode('login');
+      });
+    } else if (authMode === 'forgotPassword') {
+      const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
+      cognitoUser.forgotPassword({
+        onSuccess: function (data) {
+          setLoading(false);
+          Alert.alert('Success', 'Verification code sent to your email.');
+          setAuthMode('resetPassword');
+        },
+        onFailure: function (err) {
+          setLoading(false);
+          Alert.alert('Error', err.message || JSON.stringify(err));
+        },
+        inputVerificationCode: function (data) {
+          setLoading(false);
+          Alert.alert('Success', 'Verification code sent to your email.');
+          setAuthMode('resetPassword');
+        }
+      });
+    } else if (authMode === 'resetPassword') {
+      if (!verificationCode || !password) {
+        setLoading(false);
+        Alert.alert('Error', 'Please enter verification code and new password');
+        return;
+      }
+      const cognitoUser = new CognitoUser({ Username: email, Pool: userPool });
+      cognitoUser.confirmPassword(verificationCode, password, {
+        onSuccess() {
+          setLoading(false);
+          Alert.alert('Success', 'Password has been reset successfully. Please log in.');
+          setAuthMode('login');
+        },
+        onFailure(err) {
+          setLoading(false);
+          Alert.alert('Error', err.message || JSON.stringify(err));
+        }
       });
     }
   };
@@ -83,9 +133,13 @@ export default function AuthScreen() {
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.title}>{isLogin ? 'Welcome Back' : 'Create Account'}</Text>
+        <Text style={styles.title}>
+          {authMode === 'login' ? 'Welcome Back' : 
+           authMode === 'signup' ? 'Create Account' : 
+           authMode === 'forgotPassword' ? 'Reset Password' : 'New Password'}
+        </Text>
         
-        {!isLogin && (
+        {authMode === 'signup' && (
           <TextInput
             style={styles.input}
             placeholder="Full Name"
@@ -96,32 +150,60 @@ export default function AuthScreen() {
           />
         )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email address"
-          placeholderTextColor="#999"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+        {(authMode === 'login' || authMode === 'signup' || authMode === 'forgotPassword') && (
+          <TextInput
+            style={styles.input}
+            placeholder="Email address"
+            placeholderTextColor="#999"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        )}
+
+        {authMode === 'resetPassword' && (
+          <TextInput
+            style={styles.input}
+            placeholder="Verification Code"
+            placeholderTextColor="#999"
+            value={verificationCode}
+            onChangeText={setVerificationCode}
+            keyboardType="number-pad"
+          />
+        )}
         
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#999"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        {(authMode === 'login' || authMode === 'signup' || authMode === 'resetPassword') && (
+          <TextInput
+            style={styles.input}
+            placeholder={authMode === 'resetPassword' ? "New Password" : "Password"}
+            placeholderTextColor="#999"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        )}
 
         <TouchableOpacity style={styles.button} onPress={handleAuth} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>
+            {authMode === 'login' ? 'Sign In' : 
+             authMode === 'signup' ? 'Sign Up' : 
+             authMode === 'forgotPassword' ? 'Send Code' : 'Reset Password'}
+          </Text>}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={styles.switchBtn}>
+        {authMode === 'login' && (
+          <TouchableOpacity onPress={() => setAuthMode('forgotPassword')} style={styles.forgotBtn}>
+            <Text style={styles.forgotText}>Forgot Password?</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity 
+          onPress={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} 
+          style={styles.switchBtn}
+        >
           <Text style={styles.switchText}>
-            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+            {authMode === 'login' ? "Don't have an account? Sign Up" : "Back to Sign In"}
           </Text>
         </TouchableOpacity>
         </View>
@@ -193,6 +275,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  forgotBtn: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  forgotText: {
+    color: '#ff8a00',
+    fontSize: 14,
   },
   switchBtn: {
     marginTop: 24,

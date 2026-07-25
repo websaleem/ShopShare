@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert,
 import { Stack, useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { useAppState, ReceiptItem } from '../context/StateContext';
+import { BASE_URL } from '../services/api';
 
 export default function ReceiptScreen() {
   const { state, updateState, signOut, clearState } = useAppState();
@@ -415,7 +416,7 @@ export default function ReceiptScreen() {
                           setSharingStatus('❌ Not logged in.');
                           return;
                         }
-                        const API_BASE = "https://your-api-id.execute-api.your-region.amazonaws.com/shopshare/api";
+                        const API_BASE = `${BASE_URL}/api`;
                         const res = await fetch(`${API_BASE}/share`, {
                           method: 'POST',
                           headers: {

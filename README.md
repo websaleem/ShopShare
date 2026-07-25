@@ -22,43 +22,32 @@ Static frontend hosted on S3 and CloudFront, with a Python AWS Lambda backend fo
 
 ### Request flow for AI import
 
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant Lambda
-    participant Textract
-    participant Bedrock
-
-    Browser->>Lambda: POST /shopshare/api/extract
-    
-    alt is image (JPG/PNG)
-        Lambda->>Textract: detect_document_text (sync)
-    else is PDF
-        Lambda->>Textract: StartDocumentTextDetection (async)
-        note right of Lambda: Uploads to S3 first
-    end
-    
-    Textract-->>Lambda: OCR Text
-    Lambda->>Bedrock: invoke_model(prompt with OCR text)
-    Bedrock-->>Lambda: JSON array
-    Lambda-->>Browser: Confirmed items
-    note left of Browser: Browser pending state
+```
+Browser upload    ─►  POST /shopshare/api/extract
+                          │
+                          ▼
+             Lambda extract handler
+                          │
+                          ▼
+             [images] Textract.detect_document_text (sync)
+                          │
+             [pdfs] upload to S3 + Textract.StartDocumentTextDetection (async)
+                          │
+                          ▼
+             Bedrock.invoke_model(prompt with OCR text) → JSON array
+                          │
+                          ▼
+             Browser pending state
 ```
 
 ### Calculation pipeline
 
-```mermaid
-flowchart TD
-    S[Σ subtotals] -->|total_subtotal| T[total_tax]
-    S --> D[total_discount]
-    T -->|total_subtotal * tax_pct| D
-    
-    S --> Total[total = subtotal + tax - discount]
-    T --> Total
-    D -->|- discount| Total
-    
-    Total --> P[per_person_share]
-    S -->|person_subtotal / total_subtotal| P
+```
+total_subtotal    = Σ subtotals
+total_tax         = total_subtotal * tax_pct       (if include_tax else 0)
+total_discount    = (total_subtotal + total_tax) * discount_pct
+total             = total_subtotal + total_tax − total_discount
+per_person_share  = total × (person_subtotal / total_subtotal)
 ```
 
 If an item's `Belongs To` is no longer in the current people list (e.g. the person was renamed), the item is bucketed under `"Unassigned"` instead of being silently reassigned to the first person — that way the user can see and fix it.
@@ -84,14 +73,14 @@ ShopShare/
 
 There is one deployment shape in this repo:
 
-**AWS** *(production)* — static frontend on S3+CloudFront under `websaleem.com/shopshare`, plus a Lambda API. Cost: ~$0–1/month at portfolio traffic. See [`aws/DEPLOY.md`](aws/DEPLOY.md).
+**AWS** *(production)* — static frontend on S3+CloudFront under `shopshare.websaleem.com`, plus a Lambda API. Cost: ~$0–1/month at portfolio traffic. See [`aws/DEPLOY.md`](aws/DEPLOY.md).
 
 ## Setup & Running
 
 ShopShare is a static web application communicating with an AWS Lambda backend.
 To deploy it, follow the step-by-step instructions in [`aws/DEPLOY.md`](aws/DEPLOY.md).
 
-Once deployed, open `https://www.websaleem.com/shopshare/`.
+Once deployed, open `https://shopshare.websaleem.com/`.
 
 In the sidebar:
 1. Add the people who should split the bill.
@@ -144,7 +133,7 @@ A simple form. Validates that the item name is non-empty and the price is greate
 
 1. Ensure the Lambda execution role has the IAM permissions in `aws/iam/lambda-policy.json`.
 2. Deploy the Lambda using `ShopShare/aws/lambda/build.sh` (or your normal deployment method). Set env vars: `UPLOAD_BUCKET`, `UPLOAD_PREFIX`, `BEDROCK_MODEL_ID`, `AWS_REGION`, `STATE_TABLE`.
-3. Deploy the frontend to S3/CloudFront or serve it locally.
+3. Deploy the frontend to S3/CloudFront or run locally and update `MainActivity.kt` in `android-app` to point `START_URL` at your local host.
 4. Sanity tests:
     - JPG/PNG receipt → synchronous items appear in the pending list (HTTP 200).
     - PDF receipt → initial call returns HTTP 202 with `jobId`; poll `/extract/status` until HTTP 200 items returned.

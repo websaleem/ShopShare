@@ -26,7 +26,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             if (!state.token) return;
             try {
-              const API_BASE = `${BASE_URL}/shopshare/api`;
+              const API_BASE = `${BASE_URL}/api`;
               const res = await fetch(`${API_BASE}/account`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${state.token}` }

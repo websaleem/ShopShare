@@ -15,7 +15,14 @@ Parameters:
   NotificationEmail:
     Type: String
     Description: Email address for build notifications
-    
+  WebBucketName:
+    Type: String
+    Default: dev.websaleem.com
+    Description: S3 bucket name where the frontend will be deployed
+  CloudFrontDistributionId:
+    Type: String
+    Description: CloudFront distribution ID to invalidate
+
 Resources:
   ArtifactsBucket:
     Type: AWS::S3::Bucket
@@ -118,6 +125,19 @@ Resources:
                 Resource: !Sub "arn:aws:s3:::shopshare-*"
               - Effect: Allow
                 Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource: 
+                  - !Sub "arn:aws:s3:::${WebBucketName}"
+                  - !Sub "arn:aws:s3:::${WebBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}"
+              - Effect: Allow
+                Action:
                   - cognito-idp:CreateUserPool
                   - cognito-idp:DeleteUserPool
                   - cognito-idp:DescribeUserPool
@@ -185,6 +205,10 @@ Resources:
             Value: '20'
           - Name: JAVA_VERSION
             Value: '17'
+          - Name: WEB_BUCKET_NAME
+            Value: !Ref WebBucketName
+          - Name: CLOUDFRONT_DIST_ID
+            Value: !Ref CloudFrontDistributionId
       Source:
         Type: CODEPIPELINE
         BuildSpec: buildspec.yml

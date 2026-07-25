@@ -1,7 +1,7 @@
 Feature: ShopShare Item and Quantity Tracking
 
   Scenario: Add an item and split its quantity
-    Given I navigate to "https://dev.websaleem.com/shopshare/"
+    Given I navigate to "https://shopshare.websaleem.com/"
     When I click on the "Manual Entry" tab
     And I enter "Pizza" in the item name field
     And I enter "20" in the price field

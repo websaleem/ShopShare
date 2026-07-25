@@ -34,6 +34,24 @@ phases:
       # Upload the real Lambda code (the CFN stack starts with a placeholder)
       - echo "Updating Lambda function code..."
       - aws lambda update-function-code --function-name "shopshare-extract-${STACK_NAME}" --zip-file fileb://backend/lambda/lambda.zip
+      # Generate config.js from SSM Parameter Store values
+      - echo "Generating webpage config.js from SSM..."
+      - |
+        API_URL=$(aws ssm get-parameter --name /shopshare/api-url --query 'Parameter.Value' --output text)
+        POOL_ID=$(aws ssm get-parameter --name /shopshare/cognito-user-pool-id --query 'Parameter.Value' --output text)
+        CLIENT_ID=$(aws ssm get-parameter --name /shopshare/cognito-client-id --query 'Parameter.Value' --output text)
+        cat > webpage/config.js <<EOF
+        const SHOPSHARE_CONFIG = {
+            API_BASE_URL: "${API_URL}",
+            COGNITO_USER_POOL_ID: "${POOL_ID}",
+            COGNITO_CLIENT_ID: "${CLIENT_ID}"
+        };
+        EOF
+      - echo "Deploying webpage to S3..."
+      - aws s3 sync webpage/ s3://$WEB_BUCKET_NAME/shopshare/ --exclude "*.DS_Store" --exclude "config.example.js" --cache-control "public, max-age=300"
+      - aws s3 cp webpage/index.html s3://$WEB_BUCKET_NAME/shopshare --content-type "text/html" --cache-control "public, max-age=300"
+      - aws s3 cp webpage/index.html s3://$WEB_BUCKET_NAME/shopshare/ --content-type "text/html" --cache-control "public, max-age=300"
+      - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/shopshare/*" "/shopshare"
       - echo "Deployment complete."
 
 artifacts:

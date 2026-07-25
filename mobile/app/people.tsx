@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useAppState } from '../context/StateContext';
 import { useRouter } from 'expo-router';
 
@@ -15,6 +15,10 @@ export default function PeopleScreen() {
     
     const emails = { ...(state.peopleEmails || {}) };
     if (newEmail.trim()) {
+      if (!/^\S+@\S+\.\S+$/.test(newEmail.trim())) {
+        Alert.alert("Invalid Email", "Please enter a valid email address.");
+        return;
+      }
       emails[trimmed] = newEmail.trim();
     }
     

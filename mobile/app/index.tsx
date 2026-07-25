@@ -214,10 +214,10 @@ export default function DashboardScreen() {
         </View>
         
         <View style={styles.footerLinks}>
-          <TouchableOpacity onPress={() => Linking.openURL('https://www.websaleem.com/shopshare/privacy.html')}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://shopshare.websaleem.com/privacy.html')}>
             <Text style={styles.footerLinkText}>🔒 Privacy Policy</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Linking.openURL('https://www.websaleem.com/shopshare/terms.html')}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://shopshare.websaleem.com/terms.html')}>
             <Text style={styles.footerLinkText}>📄 Terms of Service</Text>
           </TouchableOpacity>
         </View>
