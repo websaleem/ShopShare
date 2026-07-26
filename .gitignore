@@ -5,6 +5,7 @@ __pycache__/
 
 # Environments
 .env*
+expressions.txt
 .venv
 env/
 venv/
