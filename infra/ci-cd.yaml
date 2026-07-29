@@ -17,7 +17,7 @@ Parameters:
     Description: Email address for build notifications
   WebBucketName:
     Type: String
-    Default: dev.websaleem.com
+    Default: websaleem.com
     Description: S3 bucket name where the frontend will be deployed
   CloudFrontDistributionId:
     Type: String

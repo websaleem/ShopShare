@@ -39,7 +39,8 @@ Resources:
             AllowedMethods: [POST, PUT]
             # Fix #3: Restrict S3 CORS to specific domains, not wildcard
             AllowedOrigins:
-              - 'https://dev.websaleem.com'
+              - 'https://shopshare.websaleem.com'
+              - 'https://dev.shopshare.websaleem.com'
             MaxAge: 300
 
   # ───────── DynamoDB State Table ─────────
@@ -182,6 +183,7 @@ Resources:
           # L-1: Pass USER_POOL_ID so Lambda has no hardcoded fallback
           USER_POOL_ID: !Ref ShopShareUserPool
           SES_FROM_EMAIL: !Ref SesFromEmail
+          ALLOWED_ORIGINS_EXTRA: 'https://shopshare.websaleem.com,https://dev.shopshare.websaleem.com'
       Code:
         ZipFile: |
           # placeholder; use aws cloudformation package or update-function-code to upload real code
@@ -197,7 +199,8 @@ Resources:
       CorsConfiguration:
         # Fix #4: Restrict API Gateway CORS to specific domains, not wildcard
         AllowOrigins:
-          - 'https://dev.websaleem.com'
+          - 'https://shopshare.websaleem.com'
+          - 'https://dev.shopshare.websaleem.com'
         AllowMethods:
           - 'OPTIONS'
           - 'GET'

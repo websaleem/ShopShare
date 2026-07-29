@@ -3,7 +3,7 @@
 This is the runbook for the Option-A architecture: a static frontend on **S3 + CloudFront**, plus a **Lambda** (with a Function URL) for AI extraction (Textract + Bedrock). The expected cost at portfolio traffic is **$0–1/month** — well within the AWS Lambda and CloudFront free tiers.
 
 ```
-                  CloudFront (dev.websaleem.com)
+                  CloudFront (websaleem.com)
                            │
         ┌──────────────────┴────────────────────┐
         ▼                                       ▼
@@ -21,7 +21,7 @@ This is the runbook for the Option-A architecture: a static frontend on **S3 + C
 You need:
 - An AWS account with permission to create S3 buckets, Lambda functions, and edit your existing CloudFront distribution.
 - The AWS CLI configured (`aws configure`) — all commands below assume `us-east-1`; substitute your region.
-- The existing CloudFront distribution that serves `dev.websaleem.com` (`DIST_ID` below).
+- The existing CloudFront distribution that serves `websaleem.com` (`DIST_ID` below).
 
 Substitute these placeholders before running anything:
 

@@ -57,7 +57,8 @@ USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
 # Security: allowed CORS origins — do NOT include localhost in production
 _extra_origins = {o.strip() for o in os.environ.get("ALLOWED_ORIGINS_EXTRA", "").split(",") if o.strip()}
 ALLOWED_ORIGINS = {
-    "https://dev.websaleem.com",
+    "https://shopshare.websaleem.com",
+    "https://dev.shopshare.websaleem.com",
 } | _extra_origins
 
 # Security: per-user rate limiting (extract/share endpoints)

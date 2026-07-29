@@ -22,3 +22,24 @@ aws cloudformation deploy \
 
 # Output stack info
 aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs" --output table
+
+# Export stack outputs to SSM Parameter Store for CI/CD builds
+echo "Exporting stack outputs to SSM Parameter Store..."
+API_URL=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" --output text)
+POOL_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+CLIENT_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)
+
+PREFIX="/shopshare"
+if [[ "$STACK_NAME" == *"dev"* ]]; then
+  PREFIX="/shopshare/dev"
+else
+  aws ssm put-parameter --name "/shopshare/prod/api-url" --value "$API_URL" --type String --overwrite
+  aws ssm put-parameter --name "/shopshare/prod/cognito-user-pool-id" --value "$POOL_ID" --type String --overwrite
+  aws ssm put-parameter --name "/shopshare/prod/cognito-client-id" --value "$CLIENT_ID" --type String --overwrite
+  aws ssm put-parameter --name "/shopshare/mobile/cognito-user-pool-id" --value "$POOL_ID" --type String --overwrite
+fi
+
+aws ssm put-parameter --name "${PREFIX}/api-url" --value "$API_URL" --type String --overwrite
+aws ssm put-parameter --name "${PREFIX}/cognito-user-pool-id" --value "$POOL_ID" --type String --overwrite
+aws ssm put-parameter --name "${PREFIX}/cognito-client-id" --value "$CLIENT_ID" --type String --overwrite
+echo "SSM Parameter Store updated successfully."
